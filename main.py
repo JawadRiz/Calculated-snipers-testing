@@ -17,12 +17,11 @@ tableOfDots = []
 IMAGES['dot'] = pygame.image.load('assets/dot.png').convert_alpha()
 IMAGES['target'] = pygame.image.load('assets/target.png').convert_alpha()
 
-equation = input("type equation: f(x) = ")
-
 #  Sets up the level by placing the target, obstructions, etc.
-def SetupLevel():
+def SetupLevel(posX, posY):
   #  Place target
-  
+  SCREEN.blit(IMAGES['target'], (posX, posY))
+  pygame.display.update()
 
 
 #  Purpose is to find subfunctions within the equation (ex. find sin, cos, log, etc.)
@@ -138,7 +137,7 @@ def CleanupEquation(equation):
   return equation
     
 
-def CalculateEquation(equation, dotTable):
+def CalculateEquation(equation, dotTable, tPosX, tPosY):
   x = 0
   errornum = 0
   coordinatesTable = []
@@ -149,7 +148,7 @@ def CalculateEquation(equation, dotTable):
       #print("f({})".format(str(x)), "=", (newEquation), "=", eval(newEquation))
       coords = [x, eval(newEquation)]
       coordinatesTable.append(coords)
-      PlotGraph(coords, dotTable)
+      PlotGraph(coords, dotTable, tPosX, tPosY)
     except:
       #  Might be an asymptote or undefined (x/0)
       errornum += 1
@@ -164,7 +163,7 @@ def CalculateEquation(equation, dotTable):
 #equation = CleanupEquation(equation.replace("x", "(x)"))
   
 
-def PlotGraph(coords, dotTable):
+def PlotGraph(coords, dotTable, tPosX, tPosY):
   #Used to alternate positions between dots to reduce lag
   SCREEN.fill((255,255,255))
   if coords[1] != 'None':
@@ -174,5 +173,13 @@ def PlotGraph(coords, dotTable):
       dotTable.pop(0)
   for dot in dotTable:
     SCREEN.blit(dot[0], dot[1])
+  SetupLevel(tPosX, tPosY)
   pygame.display.update()
-coordinates = CalculateEquation(equation, tableOfDots)
+
+tPosX = random.randint(500, 560)
+tPosY = random.randint(200, 400)
+SCREEN.fill((255,255,255))
+SetupLevel(tPosX, tPosY)
+equation = input("type equation: f(x) = ")
+
+coordinates = CalculateEquation(equation, tableOfDots, tPosX, tPosY)

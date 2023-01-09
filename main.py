@@ -2,25 +2,104 @@ import math
 import os
 import pygame
 import random
-from pygame.locals import *
 
 SCREENWIDTH  = 612
 SCREENHEIGHT = 512
+FPS = 144
 
-IMAGES, BACKGROUNDS, SPRITES = {}, {}, {}
+IMAGES, HITMASKS, SPRITES = {}, {}, {}
 
 SCREEN = pygame.display.set_mode((SCREENWIDTH, SCREENHEIGHT))
 pygame.init()
 
-#Alternates between dots to reduce lag
-tableOfDots = []
 IMAGES['dot'] = pygame.image.load('assets/dot.png').convert_alpha()
 IMAGES['target'] = pygame.image.load('assets/target.png').convert_alpha()
+IMAGES['rock'] = pygame.image.load('assets/obstructions/rock.png').convert_alpha()
+IMAGES['sniper'] = pygame.image.load('assets/sniper.png').convert_alpha()
+
+def getHitmask(image):
+    #  returns a hitmask using an image's alpha
+    mask = []
+    for x in range(image.get_width()):
+        mask.append([])
+        for y in range(image.get_height()):
+            mask[x].append(bool(image.get_at((x,y))[3]))
+    return mask
+
+#  Hitmasks for graph dot and target
+HITMASKS['dot'] = (
+  getHitmask(IMAGES['dot'])
+)
+
+HITMASKS['target'] = (
+  getHitmask(IMAGES['target'])
+)
+
+HITMASKS['rock'] = (
+  getHitmask(IMAGES['rock'])
+)
+
+#  Creates the level. Make the locations for the target and obstructions
+def GenerateLevel(difficultyFactor):
+  tPosX = random.randint(500, 560)
+  tPosY = random.randint(100, 400)
+  SCREEN.fill((255,255,255))
+  obstructionList = []
+
+  num = 0
+
+  #  Loads boulders on the top. Also checks distance between each boulder so they aren't too close.
+  while num < difficultyFactor/2:
+    while True:
+      dist = 60
+      randomPos = (random.randint(150, 420), random.randint(-10, 300))
+      if not len(obstructionList) == 0:
+        for obstruction in obstructionList:
+          obstructionDist = math.hypot(obstruction[1][0] - randomPos[0], obstruction[1][1] - randomPos[1])
+          if obstructionDist < dist:
+            dist = obstructionDist
+      else:
+        break
+      if dist >= 60:
+        break
+
+        
+    obstructionList.append([IMAGES['rock'], randomPos])
+    num += 1
+
+  
+  while num < difficultyFactor:
+    while True:
+      dist = 60
+      randomPos = (random.randint(150, 420), random.randint(300, 550))
+      if not len(obstructionList) == 0:
+        for obstruction in obstructionList:
+          obstructionDist = math.hypot(obstruction[1][0] - randomPos[0], obstruction[1][1] - randomPos[1])
+          if obstructionDist < dist:
+            dist = obstructionDist
+      else:
+        break
+
+      if dist >= 60:
+        break
+        
+    obstructionList.append([IMAGES['rock'], randomPos])
+    num += 1
+  
+  return tPosX, tPosY, obstructionList
 
 #  Sets up the level by placing the target, obstructions, etc.
-def SetupLevel(posX, posY):
+def SetupLevel(posX, posY, obstructions):
   #  Place target
   SCREEN.blit(IMAGES['target'], (posX, posY))
+
+  #  Place sniper
+  SCREEN.blit(IMAGES['sniper'], (-40, 230))
+  
+  #  Place obstructions
+  for obstruction in obstructions:
+    SCREEN.blit(obstruction[0], obstruction[1])
+  
   pygame.display.update()
 
 
@@ -133,22 +212,34 @@ def CleanupEquation(equation):
     else:
       break
     startingVal = closingBracketLocation + 1
-  os.system('clear')
   return equation
     
 
-def CalculateEquation(equation, dotTable, tPosX, tPosY):
+def CalculateEquation(equation, tPosX, tPosY, obstructions):
+  os.system('clear')
   x = 0
+  yShift = 0
   errornum = 0
   coordinatesTable = []
+  dotTable = []
   while x <= 28.5:
     try:
       newEquation = equation.replace("x", "({})".format(str(x)))
       newEquation = CleanupEquation(newEquation)
+      if x == 0:
+        yShift = -(eval(newEquation))
       #print("f({})".format(str(x)), "=", (newEquation), "=", eval(newEquation))
-      coords = [x, eval(newEquation)]
+      coords = [x, eval(newEquation) + yShift]
       coordinatesTable.append(coords)
-      PlotGraph(coords, dotTable, tPosX, tPosY)
+      PlotGraph(coords, dotTable, tPosX, tPosY, obstructions)
+      crashChecker = checkCrash({'x': tPosX, 'y': tPosY}, dotTable, obstructions)
+      if crashChecker[0]:
+        if crashChecker[1]:
+          print("Nice!")
+          return "Hit"
+        else:
+          print("Miss!")
+          return "Miss"
     except:
       #  Might be an asymptote or undefined (x/0)
       errornum += 1
@@ -158,28 +249,89 @@ def CalculateEquation(equation, dotTable, tPosX, tPosY):
       if errornum > 20:
         return "Error"
     x += 0.1
-  return coordinatesTable
+    pygame.time.Clock().tick(FPS)
+  return "Miss"
 #  Place brackets between all x to easily work with the equation
 #equation = CleanupEquation(equation.replace("x", "(x)"))
   
 
-def PlotGraph(coords, dotTable, tPosX, tPosY):
-  #Used to alternate positions between dots to reduce lag
+def PlotGraph(coords, dotTable, tPosX, tPosY, obstructions):
+  #  Used to alternate positions between dots to reduce lag
   SCREEN.fill((255,255,255))
   if coords[1] != 'None':
-    pos = (100 + coords[0]*20, 200 - coords[1]*20)
+    pos = (125 + coords[0]*20, 200 - coords[1]*20 + 120)
     dotTable.append([IMAGES['dot'], pos])
     if len(dotTable) > 30:
       dotTable.pop(0)
   for dot in dotTable:
     SCREEN.blit(dot[0], dot[1])
-  SetupLevel(tPosX, tPosY)
+  SetupLevel(tPosX, tPosY, obstructions)
   pygame.display.update()
 
-tPosX = random.randint(500, 560)
-tPosY = random.randint(200, 400)
-SCREEN.fill((255,255,255))
-SetupLevel(tPosX, tPosY)
-equation = input("type equation: f(x) = ")
+def checkCrash(target, dots, obstructions):
+   #  Returns True if a dot collides with an object. Returns 2 trues if it also collides with the target
+    target['w'] = IMAGES['target'].get_width()
+    target['h'] = IMAGES['target'].get_height()
 
-coordinates = CalculateEquation(equation, tableOfDots, tPosX, tPosY)
+    rockWidth = IMAGES['rock'].get_width()
+    rockHeight = IMAGES['rock'].get_height()
+  
+    targetRect = pygame.Rect(target['x'], target['y'], target['w'], target['h'])
+    dotW = IMAGES['dot'].get_width()
+    dotH = IMAGES['dot'].get_height()
+
+    for dot in dots:
+        #  All dot rects
+        dotRect = pygame.Rect(dot[1][0], dot[1][1], dotW, dotH)
+
+        #  target, dots and obstructions hitmasks
+        targetHitMask = HITMASKS['target']
+        dotHitmask = HITMASKS['dot']
+        rockHitmask = HITMASKS['rock']
+
+        # if dot collided with rock
+        for obstruction in obstructions:
+          rockRect = pygame.Rect(obstruction[1][0], obstruction[1][1], rockWidth, rockHeight)
+          rockCollide = pixelCollision(rockRect, dotRect, rockHitmask, dotHitmask)
+          if rockCollide:
+            return [True, False]
+          
+        # if dot collided with target
+        targetCollide = pixelCollision(targetRect, dotRect, targetHitMask, dotHitmask)
+
+        if targetCollide:
+            return [True, True]
+
+    return [False, False]
+
+def pixelCollision(rect1, rect2, hitmask1, hitmask2):
+    #  Checks if two objects collide and not just their rects
+    rect = rect1.clip(rect2)
+
+    if rect.width == 0 or rect.height == 0:
+        return False
+
+    x1, y1 = rect.x - rect1.x, rect.y - rect1.y
+    x2, y2 = rect.x - rect2.x, rect.y - rect2.y
+
+    for x in range(rect.width):
+        for y in range(rect.height):
+            if hitmask1[x1+x][y1+y] and hitmask2[x2+x][y2+y]:
+                return True
+    return False
+
+difficultyFactor = 2
+def main(difficultyFactor):
+  tPosX, tPosY, obstructions = GenerateLevel(difficultyFactor)
+  SetupLevel(tPosX, tPosY, obstructions)
+  while True:
+    equation = input("type equation: f(x) = ")
+    coordinates = CalculateEquation(equation, tPosX, tPosY, obstructions)
+    if coordinates == "Hit":
+      print("next stage")
+      difficultyFactor += 2
+      main(difficultyFactor)
+    elif coordinates == "Miss":
+      print("loose 1 life")
+
+main(difficultyFactor)

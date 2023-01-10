@@ -7,6 +7,8 @@ SCREENWIDTH  = 612
 SCREENHEIGHT = 512
 FPS = 144
 
+sniperPos = (15, 230)
+
 IMAGES, HITMASKS, SPRITES = {}, {}, {}
 
 SCREEN = pygame.display.set_mode((SCREENWIDTH, SCREENHEIGHT))
@@ -14,8 +16,10 @@ pygame.init()
 
 IMAGES['dot'] = pygame.image.load('assets/dot.png').convert_alpha()
 IMAGES['target'] = pygame.image.load('assets/target.png').convert_alpha()
+IMAGES['targetstand'] = pygame.image.load('assets/targetstand.png').convert_alpha()
 IMAGES['rock'] = pygame.image.load('assets/obstructions/rock.png').convert_alpha()
 IMAGES['sniper'] = pygame.image.load('assets/sniper.png').convert_alpha()
+IMAGES['stand'] = pygame.image.load('assets/stand.png').convert_alpha()
 
 def getHitmask(image):
     #  returns a hitmask using an image's alpha
@@ -52,7 +56,7 @@ def GenerateLevel(difficultyFactor):
   while num < difficultyFactor/2:
     while True:
       dist = 60
-      randomPos = (random.randint(150, 420), random.randint(-10, 300))
+      randomPos = (random.randint(-10, 540), random.randint(-10, 300))
       if not len(obstructionList) == 0:
         for obstruction in obstructionList:
           obstructionDist = math.hypot(obstruction[1][0] - randomPos[0], obstruction[1][1] - randomPos[1])
@@ -61,17 +65,20 @@ def GenerateLevel(difficultyFactor):
       else:
         break
       if dist >= 60:
-        break
+        distFromSniper = math.hypot(randomPos[0] - sniperPos[0], randomPos[1] - sniperPos[1])
+        distFromTarget = math.hypot(randomPos[0] - tPosX, randomPos[1] - tPosY)
+        if distFromSniper > 250 and distFromTarget > 100:
+          break
 
         
     obstructionList.append([IMAGES['rock'], randomPos])
     num += 1
 
-  
+  #  Loads boulder on the bottom. Same function as the code on top
   while num < difficultyFactor:
     while True:
       dist = 60
-      randomPos = (random.randint(150, 420), random.randint(300, 550))
+      randomPos = (random.randint(50, 540), random.randint(300, 550))
       if not len(obstructionList) == 0:
         for obstruction in obstructionList:
           obstructionDist = math.hypot(obstruction[1][0] - randomPos[0], obstruction[1][1] - randomPos[1])
@@ -79,9 +86,11 @@ def GenerateLevel(difficultyFactor):
             dist = obstructionDist
       else:
         break
-
       if dist >= 60:
-        break
+        distFromSniper = math.hypot(randomPos[0] - sniperPos[0], randomPos[1] - sniperPos[1])
+        distFromTarget = math.hypot(randomPos[0] - tPosX, randomPos[1] - tPosY)
+        if distFromSniper > 250 and distFromTarget > 100:
+          break
         
     obstructionList.append([IMAGES['rock'], randomPos])
     num += 1
@@ -91,10 +100,12 @@ def GenerateLevel(difficultyFactor):
 #  Sets up the level by placing the target, obstructions, etc.
 def SetupLevel(posX, posY, obstructions):
   #  Place target
+  SCREEN.blit(IMAGES['targetstand'], (posX + 15, posY + 10))
   SCREEN.blit(IMAGES['target'], (posX, posY))
-
+  
   #  Place sniper
-  SCREEN.blit(IMAGES['sniper'], (-40, 230))
+  SCREEN.blit(IMAGES['sniper'], sniperPos)
+  SCREEN.blit(IMAGES['stand'], (sniperPos[0] - 35, sniperPos[1] + 50))
   
   #  Place obstructions
   for obstruction in obstructions:
@@ -214,7 +225,7 @@ def CleanupEquation(equation):
     startingVal = closingBracketLocation + 1
   return equation
     
-
+#  The code that calculates each part of the function and graphs it. Also checks if the graph hits a part
 def CalculateEquation(equation, tPosX, tPosY, obstructions):
   os.system('clear')
   x = 0
@@ -233,7 +244,10 @@ def CalculateEquation(equation, tPosX, tPosY, obstructions):
       coordinatesTable.append(coords)
       PlotGraph(coords, dotTable, tPosX, tPosY, obstructions)
       crashChecker = checkCrash({'x': tPosX, 'y': tPosY}, dotTable, obstructions)
+
+      #  If first value of crashChecker is true, that means it hit something
       if crashChecker[0]:
+        #  If the second value is true, it hit the target.
         if crashChecker[1]:
           print("Nice!")
           return "Hit"
@@ -244,9 +258,10 @@ def CalculateEquation(equation, tPosX, tPosY, obstructions):
       #  Might be an asymptote or undefined (x/0)
       errornum += 1
       coordinatesTable.append((x, "None"))
-      print("Unknown Value", errornum)
       #  If error happens more than 15 times then theres a problem
       if errornum > 20:
+        os.system('clear')
+        print("Equation invalid; syntax is not proper (ex: square brackets not allowed, missing bracket) or no values available.")
         return "Error"
     x += 0.1
     pygame.time.Clock().tick(FPS)
@@ -259,7 +274,8 @@ def PlotGraph(coords, dotTable, tPosX, tPosY, obstructions):
   #  Used to alternate positions between dots to reduce lag
   SCREEN.fill((255,255,255))
   if coords[1] != 'None':
-    pos = (125 + coords[0]*20, 200 - coords[1]*20 + 120)
+    #  1 unit square is equal to 20 pixels by 20 pixels
+    pos = (180 + coords[0]*20, 320 - coords[1]*20)
     dotTable.append([IMAGES['dot'], pos])
     if len(dotTable) > 30:
       dotTable.pop(0)
@@ -320,7 +336,8 @@ def pixelCollision(rect1, rect2, hitmask1, hitmask2):
                 return True
     return False
 
-difficultyFactor = 2
+difficultyFactor = 1
+os.system('clear')
 def main(difficultyFactor):
   tPosX, tPosY, obstructions = GenerateLevel(difficultyFactor)
   SetupLevel(tPosX, tPosY, obstructions)
@@ -329,9 +346,12 @@ def main(difficultyFactor):
     coordinates = CalculateEquation(equation, tPosX, tPosY, obstructions)
     if coordinates == "Hit":
       print("next stage")
-      difficultyFactor += 2
+      difficultyFactor += 1
+      if difficultyFactor > 22:
+        #  Capped at 22 or else it would become physically impossible
+        difficultyFactor = 22
       main(difficultyFactor)
     elif coordinates == "Miss":
-      print("loose 1 life")
+      print("lost 1 life")
 
 main(difficultyFactor)

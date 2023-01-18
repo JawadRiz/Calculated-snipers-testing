@@ -14,6 +14,10 @@ IMAGES, HITMASKS, SPRITES = {}, {}, {}
 SCREEN = pygame.display.set_mode((SCREENWIDTH, SCREENHEIGHT))
 pygame.init()
 
+IMAGES['menu'] = pygame.image.load('assets/menu.png').convert_alpha()
+IMAGES['tutorial'] = pygame.image.load('assets/tutorial.png').convert_alpha()
+IMAGES['rules'] = pygame.image.load('assets/rules.png').convert_alpha()
+IMAGES['grid'] = pygame.image.load('assets/thegrid.png').convert_alpha()
 IMAGES['dot'] = pygame.image.load('assets/dot.png').convert_alpha()
 IMAGES['target'] = pygame.image.load('assets/target.png').convert_alpha()
 IMAGES['targetstand'] = pygame.image.load('assets/targetstand.png').convert_alpha()
@@ -21,8 +25,11 @@ IMAGES['rock'] = pygame.image.load('assets/obstructions/rock.png').convert_alpha
 IMAGES['sniper'] = pygame.image.load('assets/sniper.png').convert_alpha()
 IMAGES['stand'] = pygame.image.load('assets/stand.png').convert_alpha()
 
+
+################# FUNCTIONS RELATED TO LEVEL GENERATION #################
+
+#  Returns a hitmask using an image's alpha
 def getHitmask(image):
-    #  returns a hitmask using an image's alpha
     mask = []
     for x in range(image.get_width()):
         mask.append([])
@@ -62,12 +69,10 @@ def GenerateLevel(difficultyFactor):
           obstructionDist = math.hypot(obstruction[1][0] - randomPos[0], obstruction[1][1] - randomPos[1])
           if obstructionDist < dist:
             dist = obstructionDist
-      else:
-        break
       if dist >= 60:
         distFromSniper = math.hypot(randomPos[0] - sniperPos[0], randomPos[1] - sniperPos[1])
         distFromTarget = math.hypot(randomPos[0] - tPosX, randomPos[1] - tPosY)
-        if distFromSniper > 250 and distFromTarget > 100:
+        if distFromSniper > 200 and distFromTarget > 100:
           break
 
         
@@ -84,12 +89,10 @@ def GenerateLevel(difficultyFactor):
           obstructionDist = math.hypot(obstruction[1][0] - randomPos[0], obstruction[1][1] - randomPos[1])
           if obstructionDist < dist:
             dist = obstructionDist
-      else:
-        break
       if dist >= 60:
         distFromSniper = math.hypot(randomPos[0] - sniperPos[0], randomPos[1] - sniperPos[1])
         distFromTarget = math.hypot(randomPos[0] - tPosX, randomPos[1] - tPosY)
-        if distFromSniper > 250 and distFromTarget > 100:
+        if distFromSniper > 200 and distFromTarget > 100:
           break
         
     obstructionList.append([IMAGES['rock'], randomPos])
@@ -99,21 +102,23 @@ def GenerateLevel(difficultyFactor):
 
 #  Sets up the level by placing the target, obstructions, etc.
 def SetupLevel(posX, posY, obstructions):
-  #  Place target
+  SCREEN.blit(IMAGES['grid'], (-6,-6))
+  
   SCREEN.blit(IMAGES['targetstand'], (posX + 15, posY + 10))
   SCREEN.blit(IMAGES['target'], (posX, posY))
   
-  #  Place sniper
   SCREEN.blit(IMAGES['sniper'], sniperPos)
   SCREEN.blit(IMAGES['stand'], (sniperPos[0] - 35, sniperPos[1] + 50))
   
-  #  Place obstructions
   for obstruction in obstructions:
     SCREEN.blit(obstruction[0], obstruction[1])
   
   pygame.display.update()
 
+  
 
+#################  FUNCTIONS RELATED TO CALCULATING THE MATH EQUATION #################
+  
 #  Purpose is to find subfunctions within the equation (ex. find sin, cos, log, etc.)
 def FindFunction(functionName, equation):
 
@@ -161,22 +166,16 @@ def FindFunction(functionName, equation):
       break
   return equation
   
-#  Since eval has different syntax for operations, we have to make the expression compatible
+#  Since the eval function has different syntax for operations, we have to make the expression compatible
 #  Turns x^2 to x**2, and 3(x)2  to 3*x*2 etc.
 def CleanupEquation(equation):
-  #  Change ^ to **
+  
   if equation.find("^") >= 0:
     equation = equation.replace("^", "**")
-
-  #  Change e to the actual value
   if equation.find("e") >= 0:
     equation = equation.replace("e", str(math.e))
-
-  # Change pi to to the actual value
   if equation.find("pi") >= 0:
     equation = equation.replace("pi", str(math.pi))
-
-  # Change log to natural log automatically
   if equation.find("log") >= 0:
     equation = equation.replace("log", "ln")
 
@@ -239,7 +238,6 @@ def CalculateEquation(equation, tPosX, tPosY, obstructions):
       newEquation = CleanupEquation(newEquation)
       if x == 0:
         yShift = -(eval(newEquation))
-      #print("f({})".format(str(x)), "=", (newEquation), "=", eval(newEquation))
       coords = [x, eval(newEquation) + yShift]
       coordinatesTable.append(coords)
       PlotGraph(coords, dotTable, tPosX, tPosY, obstructions)
@@ -266,13 +264,15 @@ def CalculateEquation(equation, tPosX, tPosY, obstructions):
     x += 0.1
     pygame.time.Clock().tick(FPS)
   return "Miss"
-#  Place brackets between all x to easily work with the equation
-#equation = CleanupEquation(equation.replace("x", "(x)"))
   
+
+
+################# FUNCTIONS RELATED TO GRAPHING #################
 
 def PlotGraph(coords, dotTable, tPosX, tPosY, obstructions):
   #  Used to alternate positions between dots to reduce lag
   SCREEN.fill((255,255,255))
+  SetupLevel(tPosX, tPosY, obstructions)
   if coords[1] != 'None':
     #  1 unit square is equal to 20 pixels by 20 pixels
     pos = (180 + coords[0]*20, 320 - coords[1]*20)
@@ -281,7 +281,6 @@ def PlotGraph(coords, dotTable, tPosX, tPosY, obstructions):
       dotTable.pop(0)
   for dot in dotTable:
     SCREEN.blit(dot[0], dot[1])
-  SetupLevel(tPosX, tPosY, obstructions)
   pygame.display.update()
 
 def checkCrash(target, dots, obstructions):
@@ -335,10 +334,14 @@ def pixelCollision(rect1, rect2, hitmask1, hitmask2):
             if hitmask1[x1+x][y1+y] and hitmask2[x2+x][y2+y]:
                 return True
     return False
+  
 
-difficultyFactor = 1
-os.system('clear')
-def main(difficultyFactor):
+
+
+################# MAIN CODE #################
+
+#  Main code of the game. Sets up the level, and recalls the code and ups the difficulty if they beat the level.
+def main(difficultyFactor, level):
   tPosX, tPosY, obstructions = GenerateLevel(difficultyFactor)
   SetupLevel(tPosX, tPosY, obstructions)
   while True:
@@ -347,11 +350,47 @@ def main(difficultyFactor):
     if coordinates == "Hit":
       print("next stage")
       difficultyFactor += 1
-      if difficultyFactor > 22:
-        #  Capped at 22 or else it would become physically impossible
-        difficultyFactor = 22
-      main(difficultyFactor)
+      level += 1
+      if difficultyFactor > 24:
+        #  Capped at 24 or else it would become physically impossible
+        difficultyFactor = 24
+      main(difficultyFactor, level)
     elif coordinates == "Miss":
-      print("lost 1 life")
+      print("Missed!")
 
-main(difficultyFactor)
+def menuSwitch(image, pos):
+  os.system('clear')
+  SCREEN.fill((255,255,255))
+  SCREEN.blit(image, pos)
+  pygame.display.update()
+  exit = input("Press enter to exit.")
+      
+#  Menu screen for the game. Gives users options to navigate
+while True:
+  os.system('clear')
+  print("Calculated Snipers".center(80))
+  print(""" 
+    1 : Play
+    2 : How to play
+    3 : Equation syntax rules
+    4 : Exit""")
+  print(" ")
+  print("Enter a number to chose an option")
+  SCREEN.fill((255,255,255))
+  SCREEN.blit(IMAGES['menu'], (90, 0))
+  pygame.display.update()
+  userInput = input(" ")
+  if userInput == "1":
+    os.system('clear')
+    difficultyFactor = 24
+    level = 1
+    main(difficultyFactor, level)
+  elif userInput == "2":
+    menuSwitch(IMAGES['tutorial'], (150, -10))
+  elif userInput == "3":
+    menuSwitch(IMAGES['rules'], (150, -10))
+  elif userInput == "4":
+      os.system('clear')
+      SCREEN.fill((0,0,0))
+      pygame.display.update()
+      break

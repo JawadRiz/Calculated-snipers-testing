@@ -2,6 +2,7 @@ import math
 import os
 import pygame
 import random
+import time
 
 SCREENWIDTH  = 612
 SCREENHEIGHT = 512
@@ -115,8 +116,25 @@ def SetupLevel(posX, posY, obstructions):
   
   pygame.display.update()
 
-  
 
+
+
+#################  FUNCTIONS RELATED TO DATA SAVING #################
+
+#  Open the file and rewrite highest level
+def save(level):
+  openFile = open('highestlevel.txt', 'w')
+  openFile.write(str(level))
+  openFile.close()
+
+#  Loads the file to check for highest level
+def load():
+  readFile = open('highestlevel.txt', 'r')
+  highestLevel = readFile.read()
+  readFile.close()
+  return highestLevel
+
+  
 #################  FUNCTIONS RELATED TO CALCULATING THE MATH EQUATION #################
   
 #  Purpose is to find subfunctions within the equation (ex. find sin, cos, log, etc.)
@@ -165,6 +183,8 @@ def FindFunction(functionName, equation):
     except:
       break
   return equation
+
+
   
 #  Since the eval function has different syntax for operations, we have to make the expression compatible
 #  Turns x^2 to x**2, and 3(x)2  to 3*x*2 etc.
@@ -223,7 +243,9 @@ def CleanupEquation(equation):
       break
     startingVal = closingBracketLocation + 1
   return equation
-    
+
+
+  
 #  The code that calculates each part of the function and graphs it. Also checks if the graph hits a part
 def CalculateEquation(equation, tPosX, tPosY, obstructions):
   os.system('clear')
@@ -247,10 +269,8 @@ def CalculateEquation(equation, tPosX, tPosY, obstructions):
       if crashChecker[0]:
         #  If the second value is true, it hit the target.
         if crashChecker[1]:
-          print("Nice!")
           return "Hit"
         else:
-          print("Miss!")
           return "Miss"
     except:
       #  Might be an asymptote or undefined (x/0)
@@ -272,7 +292,6 @@ def CalculateEquation(equation, tPosX, tPosY, obstructions):
 def PlotGraph(coords, dotTable, tPosX, tPosY, obstructions):
   #  Used to alternate positions between dots to reduce lag
   SCREEN.fill((255,255,255))
-  SetupLevel(tPosX, tPosY, obstructions)
   if coords[1] != 'None':
     #  1 unit square is equal to 20 pixels by 20 pixels
     pos = (180 + coords[0]*20, 320 - coords[1]*20)
@@ -281,6 +300,7 @@ def PlotGraph(coords, dotTable, tPosX, tPosY, obstructions):
       dotTable.pop(0)
   for dot in dotTable:
     SCREEN.blit(dot[0], dot[1])
+  SetupLevel(tPosX, tPosY, obstructions)
   pygame.display.update()
 
 def checkCrash(target, dots, obstructions):
@@ -345,12 +365,20 @@ def main(difficultyFactor, level):
   tPosX, tPosY, obstructions = GenerateLevel(difficultyFactor)
   SetupLevel(tPosX, tPosY, obstructions)
   while True:
+    print(" ")
+    print("Current level:", level)
+    print("World record:", load())
+    print(" ")
     equation = input("type equation: f(x) = ")
     coordinates = CalculateEquation(equation, tPosX, tPosY, obstructions)
     if coordinates == "Hit":
-      print("next stage")
+      time.sleep(0.25)
       difficultyFactor += 1
       level += 1
+      #  Updates highest level
+      if int(load()) < level:
+        print("New highest score!")
+        save(level)
       if difficultyFactor > 24:
         #  Capped at 24 or else it would become physically impossible
         difficultyFactor = 24
@@ -358,11 +386,13 @@ def main(difficultyFactor, level):
     elif coordinates == "Miss":
       print("Missed!")
 
+#  Switches between menu GUIs
 def menuSwitch(image, pos):
   os.system('clear')
   SCREEN.fill((255,255,255))
   SCREEN.blit(image, pos)
   pygame.display.update()
+  #  Yields the code until the user presses enter
   exit = input("Press enter to exit.")
       
 #  Menu screen for the game. Gives users options to navigate
@@ -382,7 +412,7 @@ while True:
   userInput = input(" ")
   if userInput == "1":
     os.system('clear')
-    difficultyFactor = 24
+    difficultyFactor = 1
     level = 1
     main(difficultyFactor, level)
   elif userInput == "2":
